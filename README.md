@@ -27,7 +27,7 @@ npm start
 1. Push code to GitHub repository
 2. Connect GitHub repo to Render
 3. Set environment variables in Render dashboard:
-   - `MONGODB_URI`: mongodb+srv://atharv:Atharv11@2004@cluster0.yl8klai.mongodb.net/ecommerce?retryWrites=true&w=majority&appName=Cluster0
+   - `MONGODB_URI`: mongodb+srv://atharv:Atharv11%402004@cluster0.yl8klai.mongodb.net/ecommerce?retryWrites=true&w=majority&appName=Cluster0
 4. Deploy with build command: `npm install`
 5. Start command: `npm start`
 

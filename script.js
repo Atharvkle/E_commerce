@@ -23,31 +23,34 @@ function login() {
     const email = document.getElementById('login-email').value;
     const password = document.getElementById('login-password').value;
     
-    if (email && password) {
-        fetch('/api/login', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ email, password })
-        })
-        .then(response => response.json())
-        .then(data => {
-            if (data.success) {
-                isLoggedIn = true;
-                localStorage.setItem('userEmail', email);
-                document.getElementById('main-header').style.display = 'block';
-                displayProducts();
-                updateCartCount();
-                loadCartFromStorage();
-                showSection('products');
-            }
-        })
-        .catch(error => {
-            console.error('Login error:', error);
-            alert('Login failed');
-        });
-    } else {
+    if (!email || !password) {
         alert('Please enter email and password');
+        return;
     }
+    
+    fetch('/api/login', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email, password })
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            isLoggedIn = true;
+            localStorage.setItem('userEmail', email);
+            document.getElementById('main-header').style.display = 'block';
+            displayProducts();
+            updateCartCount();
+            loadCartFromStorage();
+            showSection('products');
+        } else {
+            alert('Login failed: ' + (data.error || 'Unknown error'));
+        }
+    })
+    .catch(error => {
+        console.error('Login error:', error);
+        alert('Login failed. Please try again.');
+    });
 }
 
 // Logout functionality
@@ -301,46 +304,53 @@ function showOrders() {
     fetch('/api/orders')
         .then(response => response.json())
         .then(orders => {
-            const ordersList = document.getElementById('orders-list');
-            
-            if (orders.length === 0) {
-                ordersList.innerHTML = '<p>No orders found.</p>';
-            } else {
-                ordersList.innerHTML = orders.map(order => {
-                    const paymentText = order.payment.method === 'cod' ? 'Cash on Delivery' : `Card Payment`;
-                    return `
-                        <div class="order-card">
-                            <div class="order-header">
-                                <h3>Order #${order.orderId}</h3>
-                                <div>
-                                    <span class="order-status status-completed">Completed</span>
-                                    <button class="delete-btn" onclick="deleteOrder(${order.orderId})">Delete</button>
-                                </div>
-                            </div>
-                            <p><strong>Date:</strong> ${order.date}</p>
-                            <p><strong>Customer:</strong> ${order.customer.name}</p>
-                            <p><strong>Payment:</strong> ${paymentText}</p>
-                            <p><strong>Total:</strong> $${order.total.toFixed(2)}</p>
-                            <div class="order-items">
-                                <h4>Items:</h4>
-                                ${order.items.map(item => `
-                                    <div class="order-item">
-                                        <span>${item.name} x ${item.quantity}</span>
-                                        <span>$${(item.price * item.quantity).toFixed(2)}</span>
-                                    </div>
-                                `).join('')}
-                            </div>
-                        </div>
-                    `;
-                }).join('');
-            }
+            displayOrdersList(orders);
         })
         .catch(error => {
             console.error('Error fetching orders:', error);
-            document.getElementById('orders-list').innerHTML = '<p>Error loading orders.</p>';
+            const orders = JSON.parse(localStorage.getItem('orders')) || [];
+            displayOrdersList(orders);
         });
     
     showSection('orders');
+}
+
+// Display orders list
+function displayOrdersList(orders) {
+    const ordersList = document.getElementById('orders-list');
+    
+    if (orders.length === 0) {
+        ordersList.innerHTML = '<p>No orders found.</p>';
+    } else {
+        ordersList.innerHTML = orders.map(order => {
+            const orderId = order.orderId || order.id;
+            const paymentText = order.payment.method === 'cod' ? 'Cash on Delivery' : `Card Payment`;
+            return `
+                <div class="order-card">
+                    <div class="order-header">
+                        <h3>Order #${orderId}</h3>
+                        <div>
+                            <span class="order-status status-completed">Completed</span>
+                            <button class="delete-btn" onclick="deleteOrder(${orderId})">Delete</button>
+                        </div>
+                    </div>
+                    <p><strong>Date:</strong> ${order.date}</p>
+                    <p><strong>Customer:</strong> ${order.customer.name}</p>
+                    <p><strong>Payment:</strong> ${paymentText}</p>
+                    <p><strong>Total:</strong> $${order.total.toFixed(2)}</p>
+                    <div class="order-items">
+                        <h4>Items:</h4>
+                        ${order.items.map(item => `
+                            <div class="order-item">
+                                <span>${item.name} x ${item.quantity}</span>
+                                <span>$${(item.price * item.quantity).toFixed(2)}</span>
+                            </div>
+                        `).join('')}
+                    </div>
+                </div>
+            `;
+        }).join('');
+    }
 }
 
 // Delete order
@@ -352,13 +362,17 @@ function deleteOrder(orderId) {
         .then(response => response.json())
         .then(data => {
             if (data.success) {
-                showOrders(); // Refresh the orders list
+                showOrders();
                 showNotification('Order deleted successfully!');
             }
         })
         .catch(error => {
             console.error('Error deleting order:', error);
-            alert('Failed to delete order');
+            let orders = JSON.parse(localStorage.getItem('orders')) || [];
+            orders = orders.filter(order => (order.id || order.orderId) !== orderId);
+            localStorage.setItem('orders', JSON.stringify(orders));
+            showOrders();
+            showNotification('Order deleted successfully!');
         });
     }
 }
@@ -417,6 +431,9 @@ function saveOrderToStorage(order) {
     })
     .catch(error => {
         console.error('Error saving order:', error);
+        const orders = JSON.parse(localStorage.getItem('orders')) || [];
+        orders.push(order);
+        localStorage.setItem('orders', JSON.stringify(orders));
     });
 }
 
